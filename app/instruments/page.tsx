@@ -15,3 +15,5 @@ export default function Instruments() {
     </Suspense>
   );
 }
+
+// This comment is just to check the impact on the coolify insfrastructure
