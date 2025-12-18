@@ -48,3 +48,5 @@ export default function Products() {
     </Suspense> 
   );
 }
+
+// This comment is just to check the impact on github actions
