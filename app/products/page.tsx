@@ -49,4 +49,4 @@ export default function Products() {
   );
 }
 
-// This comment is just to check the impact on github actions
+// This comment is just to check the impact on the coolify insfrastructure #7
