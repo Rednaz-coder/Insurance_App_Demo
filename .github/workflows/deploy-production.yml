@@ -12,32 +12,47 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Get full history for migration tracking
       
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
       
-      - name: Apply migrations to production
+      - name: Check existing schema
         env:
           PGSSLMODE: disable
           PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
         run: |
-          echo "Applying migrations to production database..."
+          echo "Current migration status:"
+          supabase migration list --db-url "$PROD_DB_URL" || true
+      
+      - name: Sync migration history
+        env:
+          PGSSLMODE: disable
+          PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
+        run: |
+          # Mark old migrations as applied if they already exist
+          echo "Syncing migration history..."
+          
+          # Check if instruments table exists
+          if psql "$PROD_DB_URL" -c '\dt instruments' | grep -q instruments; then
+            echo "Instruments table exists, marking migration as applied..."
+            supabase migration repair --status applied --db-url "$PROD_DB_URL" 20251218071214 || true
+          fi
+      
+      - name: Apply new migrations
+        env:
+          PGSSLMODE: disable
+          PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
+        run: |
+          echo "Applying remaining migrations..."
           supabase db push --db-url "$PROD_DB_URL"
-          echo "✅ Migrations applied successfully!"
+          echo "✅ Migrations completed!"
       
-      - name: Verify migration status
+      - name: Verify final status
         env:
           PGSSLMODE: disable
           PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
         run: |
-          echo "Current migration history:"
+          echo "📋 Final migration history:"
           supabase migration list --db-url "$PROD_DB_URL"
-      
-      - name: Comment on commit (optional)
-        if: success()
-        run: |
-          echo "Production database updated successfully! 🚀"
