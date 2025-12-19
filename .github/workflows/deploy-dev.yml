@@ -1,0 +1,38 @@
+name: Deploy to Dev
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy-migrations:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Apply migrations to dev database
+        env:
+          PGSSLMODE: disable
+          DEV_DB_URL: ${{ secrets.DEV_SUPABASE_DB_URL }}
+        run: |
+          echo "🚀 Applying migrations to dev database..."
+          supabase db push --db-url "$DEV_DB_URL" --include-all
+          echo "✅ Migrations applied successfully to dev!"
+      
+      - name: Verify migration status
+        env:
+          PGSSLMODE: disable
+          DEV_DB_URL: ${{ secrets.DEV_SUPABASE_DB_URL }}
+        run: |
+          echo "📋 Current migration history in dev:"
+          supabase migration list --db-url "$DEV_DB_URL"
