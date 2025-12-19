@@ -1,9 +1,9 @@
-name: Deploy to Dev
+name: Deploy to Production
 
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
   deploy-migrations:
@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -23,34 +21,38 @@ jobs:
       - name: Check existing schema
         env:
           PGSSLMODE: disable
-          DEV_DB_URL: ${{ secrets.DEV_SUPABASE_DB_URL }}
+          PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
         run: |
           echo "Current migration status:"
-          supabase migration list --db-url "$DEV_DB_URL" || true
+          supabase migration list --db-url "$PROD_DB_URL" || true
       
       - name: Sync migration history
         env:
           PGSSLMODE: disable
-          DEV_DB_URL: ${{ secrets.DEV_SUPABASE_DB_URL }}
+          PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
         run: |
+          # Mark old migrations as applied if they already exist
           echo "Syncing migration history..."
           
-          if psql "$DEV_DB_URL" -c '\dt instruments' | grep -q instruments; then
+          # Check if instruments table exists
+          if psql "$PROD_DB_URL" -c '\dt instruments' | grep -q instruments; then
             echo "Instruments table exists, marking migration as applied..."
-            supabase migration repair --status applied --db-url "$DEV_DB_URL" 20251218071214 || true
+            supabase migration repair --status applied --db-url "$PROD_DB_URL" 20251218071214 || true
           fi
       
       - name: Apply new migrations
         env:
           PGSSLMODE: disable
+          PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
         run: |
-          echo "🚀 Applying remaining migrations to dev database..."
-          supabase db push --db-url "${{ secrets.DEV_SUPABASE_DB_URL }}"
-          echo "✅ Migrations applied successfully to dev!"
+          echo "Applying remaining migrations..."
+          supabase db push --db-url "$PROD_DB_URL"
+          echo "✅ Migrations completed!"
       
-      - name: Verify migration status
+      - name: Verify final status
         env:
           PGSSLMODE: disable
+          PROD_DB_URL: ${{ secrets.PROD_SUPABASE_DB_URL }}
         run: |
-          echo "📋 Current migration history in dev:"
-          supabase migration list --db-url "${{ secrets.DEV_SUPABASE_DB_URL }}"
+          echo "📋 Final migration history:"
+          supabase migration list --db-url "$PROD_DB_URL"
